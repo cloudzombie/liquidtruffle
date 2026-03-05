@@ -1,0 +1,11 @@
+{
+  "template": "bare-hyperevm",
+  "chain": "hyperevm",
+  "commands": [
+    "compile",
+    "test",
+    "deploy",
+    "console",
+    "doctor"
+  ]
+}

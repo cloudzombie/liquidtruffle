@@ -1,0 +1,30 @@
+{
+  "name": "liquidtruffle",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "liquidtruffle": "./src/cli.mjs"
+  },
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "node ./server/app.mjs",
+    "dev:web": "vite --host 127.0.0.1 --port 5174 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5174 --strictPort",
+    "check": "node ./server/app.mjs --check && node ./src/cli.mjs --help && node ./src/cli.mjs doctor --cwd ./templates/bare-hyperevm && vite build"
+  },
+  "dependencies": {
+    "concurrently": "^9.1.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "viem": "^2.21.54"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "dotenv": "^16.4.7",
+    "hardhat": "^2.22.18",
+    "vite": "^6.0.11"
+  }
+}
