@@ -452,6 +452,7 @@ function CompanionProfileCard({
   onRunAction,
   onRunTakeover,
 }) {
+  // Generic companion profile can target the currently selected workspace.
   const effectiveWorkspaceName = profile.workspaceName || selectedWorkspace || ''
   const workspaceReady = Boolean(profile.workspaceExists || effectiveWorkspaceName)
   const workspaceActive = Boolean(effectiveWorkspaceName) && selectedWorkspace === effectiveWorkspaceName
@@ -1638,6 +1639,9 @@ function App() {
   const primaryCompanion = dashboard?.companionProfiles?.[0] || dashboard?.companionApp || null
   const selectedWorkspaceSummary = workspaceOptions.find((item) => item.name === selectedWorkspace) || null
   const primaryTakeoverProfile = (dashboard?.companionProfiles || [])[0] || null
+  const primaryTakeoverWorkspaceReady = Boolean(
+    primaryTakeoverProfile && (primaryTakeoverProfile.workspaceExists || selectedWorkspace)
+  )
   const assistantMeta = getAssistantStatusMeta(dashboard?.assistant, assistantState)
   const workspaceKeyConfigured = Boolean(
     selectedWorkspace &&
@@ -1821,7 +1825,7 @@ function App() {
                           className="lt-button lt-button-solid"
                           onClick={() => runCompanionTakeover(primaryTakeoverProfile)}
                           disabled={
-                            !primaryTakeoverProfile.workspaceExists ||
+                            !primaryTakeoverWorkspaceReady ||
                             assistantActionKey === `companion-flow:${primaryTakeoverProfile.id}`
                           }
                         >
@@ -2923,7 +2927,7 @@ function App() {
                     className="lt-button lt-button-solid"
                     onClick={() => runCompanionTakeover(primaryTakeoverProfile)}
                     disabled={
-                      !primaryTakeoverProfile.workspaceExists ||
+                      !primaryTakeoverWorkspaceReady ||
                       assistantActionKey === `companion-flow:${primaryTakeoverProfile.id}`
                     }
                   >

@@ -1140,6 +1140,7 @@ async function runCompanionAction({ profileId, action, network, reason = '', wor
   if (!profile) {
     throw new Error(`Unknown companion profile: ${profileId}`)
   }
+  // Companion actions must stay functional even when profile.workspaceName is intentionally blank.
   const resolvedWorkspace = String(
     profile.workspaceName || workspaceName || listWorkspaceSummaries()[0]?.name || ''
   ).trim()
