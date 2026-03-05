@@ -452,7 +452,9 @@ function CompanionProfileCard({
   onRunAction,
   onRunTakeover,
 }) {
-  const workspaceActive = selectedWorkspace === profile.workspaceName
+  const effectiveWorkspaceName = profile.workspaceName || selectedWorkspace || ''
+  const workspaceReady = Boolean(profile.workspaceExists || effectiveWorkspaceName)
+  const workspaceActive = Boolean(effectiveWorkspaceName) && selectedWorkspace === effectiveWorkspaceName
   const takeoverActions = Array.isArray(profile.autopilotActions) ? profile.autopilotActions : []
   const flowKey = `companion-flow:${profile.id}`
   return (
@@ -462,15 +464,13 @@ function CompanionProfileCard({
           <strong>{profile.label}</strong>
           <span>{profile.description || 'Optional companion profile.'}</span>
         </div>
-        <StatusBadge
-          tone={profile.running ? 'live' : profile.workspaceExists ? 'neutral' : 'error'}
-        >
-          {profile.running ? 'Live' : profile.workspaceExists ? 'Ready' : 'Missing workspace'}
+        <StatusBadge tone={profile.running ? 'live' : workspaceReady ? 'neutral' : 'error'}>
+          {profile.running ? 'Live' : workspaceReady ? 'Ready' : 'Missing workspace'}
         </StatusBadge>
       </div>
 
       <div className="assistant-companion-meta">
-        <span>Workspace: {profile.workspaceName || 'none'}</span>
+        <span>Workspace: {effectiveWorkspaceName || 'none selected'}</span>
         <span>Network: {NETWORK_OPTIONS.find((item) => item.key === networkChoice)?.label || networkChoice}</span>
       </div>
 
@@ -478,15 +478,19 @@ function CompanionProfileCard({
         <button
           className={`starter-chip assistant-chip ${workspaceActive ? 'active' : ''}`}
           onClick={() => onSelectWorkspace(profile)}
-          disabled={!profile.workspaceExists}
+          disabled={!workspaceReady}
         >
-          {workspaceActive ? `${profile.label} workspace selected` : `Use ${profile.label} workspace`}
+          {workspaceActive
+            ? `${profile.label} workspace selected`
+            : workspaceReady
+              ? `Use ${profile.label} workspace`
+              : `Select a workspace`}
         </button>
         {takeoverActions.length ? (
           <button
             className="starter-chip assistant-chip assistant-chip-accent"
             onClick={() => onRunTakeover(profile)}
-            disabled={!profile.workspaceExists || busyKey === flowKey}
+            disabled={!workspaceReady || busyKey === flowKey}
           >
             {busyKey === flowKey ? `${profile.label} One-Click Takeover...` : `${profile.label} One-Click Takeover`}
           </button>
@@ -500,7 +504,7 @@ function CompanionProfileCard({
               className="starter-chip assistant-chip assistant-chip-accent"
               title={action.summary}
               onClick={() => onRunAction(profile, action.id)}
-              disabled={!profile.workspaceExists || busyKey === actionKey}
+              disabled={!workspaceReady || busyKey === actionKey}
             >
               {busyKey === actionKey ? `${profile.label} ${action.label}...` : `${profile.label} ${action.label}`}
             </button>
@@ -1369,12 +1373,17 @@ function App() {
   }
 
   function selectCompanionWorkspace(profile) {
-    if (!profile?.workspaceName) {
-      setAssistantError('This companion profile does not map to a workspace.')
+    const targetWorkspace = String(profile?.workspaceName || selectedWorkspace || '').trim()
+    if (!targetWorkspace) {
+      setAssistantError('Select a workspace before using companion shortcuts.')
+      return
+    }
+    if (!workspaceOptions.some((item) => item.name === targetWorkspace)) {
+      setAssistantError(`Companion workspace \`${targetWorkspace}\` is not available.`)
       return
     }
 
-    setSelectedWorkspace(profile.workspaceName)
+    setSelectedWorkspace(targetWorkspace)
     setAssistantDockOpen(true)
     setAssistantError('')
   }
@@ -1408,9 +1417,15 @@ function App() {
   }
 
   async function runCompanionShortcutAction(profile, action) {
-    if (!profile?.workspaceExists) {
+    const targetWorkspace = String(profile?.workspaceName || selectedWorkspace || '').trim()
+    if (!targetWorkspace) {
       setAssistantDockOpen(true)
-      setAssistantError(`The ${profile?.label || 'selected'} companion workspace is not available.`)
+      setAssistantError('Select a workspace before running companion actions.')
+      return
+    }
+    if (!workspaceOptions.some((item) => item.name === targetWorkspace)) {
+      setAssistantDockOpen(true)
+      setAssistantError(`The workspace \`${targetWorkspace}\` is not available.`)
       return
     }
 
@@ -1418,27 +1433,33 @@ function App() {
     const reason = `Direct ${profile.label} companion ${action} action from copilot shortcuts.`
     await runInlineAssistantJob({
       actionKey: `companion:${profile.id}:${action}`,
-      messageText: `Running ${action} for the ${profile.label} companion workspace \`${profile.workspaceName}\`.`,
+      messageText: `Running ${action} for the ${profile.label} companion workspace \`${targetWorkspace}\`.`,
       toolLabel: `${profile.label.toLowerCase()} ${action}`,
       initialJob: {
         id: jobId,
         action,
-        workspaceName: profile.workspaceName,
+        workspaceName: targetWorkspace,
         network: networkChoice,
         reason,
         status: 'running',
         outputTail: '',
         error: '',
       },
-      nextWorkspace: profile.workspaceName,
+      nextWorkspace: targetWorkspace,
       companion: profile,
     })
   }
 
   async function runCompanionTakeover(profile) {
-    if (!profile?.workspaceExists) {
+    const targetWorkspace = String(profile?.workspaceName || selectedWorkspace || '').trim()
+    if (!targetWorkspace) {
       setAssistantDockOpen(true)
-      setAssistantError(`The ${profile?.label || 'selected'} companion workspace is not available.`)
+      setAssistantError('Select a workspace before running companion one-button flow.')
+      return
+    }
+    if (!workspaceOptions.some((item) => item.name === targetWorkspace)) {
+      setAssistantDockOpen(true)
+      setAssistantError(`The workspace \`${targetWorkspace}\` is not available.`)
       return
     }
 
@@ -1450,7 +1471,7 @@ function App() {
     const jobs = actions.map((actionId, index) => ({
       id: `flow:${flowId}:${actionId}:${index + 1}`,
       action: actionId,
-      workspaceName: profile.workspaceName,
+      workspaceName: targetWorkspace,
       network: networkChoice,
       reason: `Step ${index + 1}/${actions.length}: ${profile.label} ${actionMeta(actionId).label}`,
       status: 'planned',
@@ -1461,12 +1482,12 @@ function App() {
     setAssistantDockOpen(true)
     setAssistantError('')
     setAssistantActionKey(flowActionKey)
-    setSelectedWorkspace(profile.workspaceName)
+    setSelectedWorkspace(targetWorkspace)
     setAssistantMessages((previous) => [
       ...previous,
       {
         role: 'assistant',
-        text: `Running ${profile.label} one-click takeover on \`${profile.workspaceName}\` (${networkChoice}).`,
+        text: `Running ${profile.label} one-click takeover on \`${targetWorkspace}\` (${networkChoice}).`,
         usedTools: [{ name: `${profile.label.toLowerCase()} one-click takeover` }],
         proposals: [],
         jobs,
@@ -1483,7 +1504,7 @@ function App() {
 
       try {
         const result = await runWorkspaceActionWithLiveLogs({
-          workspaceName: profile.workspaceName,
+          workspaceName: targetWorkspace,
           action: actionId,
           network: networkChoice,
           reason: `One-click takeover step ${index + 1}/${actions.length} for ${profile.label}.`,
@@ -1498,7 +1519,7 @@ function App() {
               createdAt: snapshot.createdAt,
               startedAt: snapshot.startedAt,
               finishedAt: snapshot.finishedAt,
-              workspaceName: profile.workspaceName,
+              workspaceName: targetWorkspace,
               network: networkChoice,
               reason: jobs[index].reason,
             })

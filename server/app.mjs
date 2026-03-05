@@ -1135,14 +1135,20 @@ async function executeAssistantJobRequests(jobRequests, { workspaceName, network
   return jobsToRun
 }
 
-async function runCompanionAction({ profileId, action, network, reason = '' }) {
+async function runCompanionAction({ profileId, action, network, reason = '', workspaceName = '' }) {
   const profile = getCompanionProfile(String(profileId || ''))
   if (!profile) {
     throw new Error(`Unknown companion profile: ${profileId}`)
   }
+  const resolvedWorkspace = String(
+    profile.workspaceName || workspaceName || listWorkspaceSummaries()[0]?.name || ''
+  ).trim()
+  if (!resolvedWorkspace) {
+    throw new Error('Select or create a workspace before running companion actions.')
+  }
 
   const result = await runAssistantJobAction({
-    workspaceName: String(profile.workspaceName || ''),
+    workspaceName: resolvedWorkspace,
     action: String(action || ''),
     network: String(network || 'hyperevm-testnet'),
     reason: reason || `Direct ${profile.label} companion action.`,
@@ -1666,6 +1672,7 @@ async function handleRequest(req, res) {
           action: String(body.action || ''),
           network: String(body.network || 'hyperevm-testnet'),
           reason: String(body.reason || ''),
+          workspaceName: String(body.workspaceName || ''),
         })
       )
       return
